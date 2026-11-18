@@ -1,7 +1,7 @@
 // Supabase Edge Function "transkribieren"
 // Nimmt eine Sprachaufnahme aus der App entgegen und gibt den erkannten Text zurück.
 // Nutzt OpenAI (Secret OPENAI_API_KEY) oder Deepgram (Secret DEEPGRAM_API_KEY).
-// Nur angemeldete Nutzer der App dürfen sie aufrufen (JWT-Prüfung von Supabase).
+// Nur angemeldete Nutzer der App dürfen sie aufrufen (prüft die Function selbst, "Verify JWT" kann aus sein).
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +14,12 @@ const json = (body: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Nur POST" }, 405);
+  // Anmeldung der App prüfen
+  const auth = req.headers.get("Authorization") || "";
+  const who = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, {
+    headers: { Authorization: auth, apikey: Deno.env.get("SUPABASE_ANON_KEY") || "" },
+  }).catch(() => null);
+  if (!who || !who.ok) return json({ error: "Bitte in der App anmelden." }, 401);
   try {
     const form = await req.formData();
     const audio = form.get("audio");
