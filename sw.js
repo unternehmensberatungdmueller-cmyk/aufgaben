@@ -1,4 +1,4 @@
-const CACHE = "aufgaben-v7";
+const CACHE = "aufgaben-v8";
 const FILES = ["./", "index.html", "manifest.json", "parse.js", "config.js", "supabase.js", "sync.js", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES))));
 self.addEventListener("activate", (e) => e.waitUntil(

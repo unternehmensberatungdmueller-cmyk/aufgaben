@@ -427,14 +427,18 @@
     <h2>Abgleich</h2>
     <div id="accOut">
       <p class="note" style="margin:0 4px 16px">Melden Sie sich auf iPhone und Mac mit derselben E-Mail-Adresse an. Dann sehen beide Geräte immer dieselben Aufgaben, Termine, Kunden und Fotos.</p>
+      <div class="seg" id="accMode" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+        <button type="button" data-m="new" class="sel">Erstes Gerät</button>
+        <button type="button" data-m="login">Weiteres Gerät</button>
+      </div>
       <form id="accForm" autocomplete="on">
         <div class="group">
           <div class="field"><label for="accEmail">E-Mail-Adresse</label><input id="accEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="off"></div>
           <div class="field"><label for="accPw">Passwort</label><input id="accPw" type="password" autocomplete="current-password" placeholder="mindestens 8 Zeichen"></div>
         </div>
         <div class="errbox" id="accErr" hidden></div>
-        <button type="submit" class="primary">Anmelden</button>
-        <button type="button" class="secondary" id="accSignup">Neues Konto anlegen</button>
+        <p class="note" id="accHint" style="margin:0 4px 14px">Legen Sie hier Ihr Konto an. Wählen Sie ein neues Passwort mit mindestens 8 Zeichen.</p>
+        <button type="submit" class="primary" id="accGo">Konto anlegen</button>
       </form>
     </div>
     <div id="accIn" hidden>
@@ -1031,20 +1035,41 @@
     if (pw.length < 8) { accError({ message: "password at least 8" }); $("accPw").focus(); return null; }
     return [email, pw];
   }
+  let accMode = "new";
+  function setAccMode(m) {
+    accMode = m; $("accErr").hidden = true;
+    $("accMode").querySelectorAll("button").forEach((b) => b.classList.toggle("sel", b.dataset.m === m));
+    $("accGo").textContent = m === "new" ? "Konto anlegen" : "Anmelden";
+    $("accPw").autocomplete = m === "new" ? "new-password" : "current-password";
+    $("accHint").textContent = m === "new"
+      ? "Legen Sie hier Ihr Konto an. Wählen Sie ein neues Passwort mit mindestens 8 Zeichen."
+      : "Melden Sie sich mit der E-Mail und dem Passwort an, die Sie auf dem ersten Gerät gewählt haben.";
+  }
+  $("accMode").querySelectorAll("button").forEach((b) => (b.onclick = () => setAccMode(b.dataset.m)));
+  try { if (localStorage.getItem("konto-angelegt")) setAccMode("login"); } catch {}
   $("accForm").addEventListener("submit", async (e) => {
     e.preventDefault(); $("accErr").hidden = true;
     const c = accCreds(); if (!c) return;
-    try { await Sync.signIn(...c); $("accPw").value = ""; toast("Angemeldet"); render(); } catch (err) { accError(err); }
-  });
-  $("accSignup").onclick = async () => {
-    $("accErr").hidden = true;
-    const c = accCreds(); if (!c) return;
+    $("accGo").disabled = true;
     try {
-      const r = await Sync.signUp(...c);
-      if (r === "ok") { $("accPw").value = ""; toast("Konto angelegt"); render(); }
-      else { $("accErr").hidden = false; $("accErr").textContent = "Fast geschafft: Bitte den Link in der E-Mail antippen und danach hier „Anmelden“."; }
-    } catch (err) { accError(err); }
-  };
+      if (accMode === "login") {
+        await Sync.signIn(...c); $("accPw").value = ""; toast("Angemeldet"); render();
+      } else {
+        const r = await Sync.signUp(...c);
+        try { localStorage.setItem("konto-angelegt", "1"); } catch {}
+        if (r === "ok") { $("accPw").value = ""; toast("Konto angelegt"); render(); }
+        else {
+          setAccMode("login");
+          $("accErr").hidden = false;
+          $("accErr").textContent = "Fast geschafft: Bitte den Link in der E-Mail von Supabase antippen. Danach hier auf „Anmelden“ tippen.";
+        }
+      }
+    } catch (err) {
+      accError(err);
+      if (accMode === "login" && /invalid login/i.test(err.message || "")) $("accErr").textContent += " Noch kein Konto? Oben „Erstes Gerät“ wählen.";
+      if (/already registered/i.test(err.message || "")) setAccMode("login"), accError(err);
+    } finally { $("accGo").disabled = false; }
+  });
   $("accSync").onclick = () => Sync.syncNow();
   $("accOutBtn").onclick = async () => {
     if (confirm("Abmelden? Ihre Einträge bleiben auf diesem Gerät erhalten.")) { await Sync.signOut(); toast("Abgemeldet"); }
