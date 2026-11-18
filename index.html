@@ -96,6 +96,12 @@
   .wday button { font-size: 16px; font-weight: 700; color: var(--text); text-align: left; padding: 4px 0; }
   .wday.today button { color: var(--accent); }
   .wday .add { color: var(--green); font-size: 15px; font-weight: 600; padding: 6px 0 6px 12px; }
+  .evbar.g { background: var(--accent); }
+  .gconnect { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 16px; margin-bottom: 14px;
+    border-radius: var(--r); background: var(--accent-soft); color: var(--accent); font-size: 15px; }
+  .gconnect svg { width: 28px; height: 28px; flex: none; }
+  .gconnect b { display: block; font-size: 17px; margin-bottom: 2px; }
+  .gconnect span { color: var(--text); } .gconnect b { color: var(--accent); }
   .freeday { color: var(--muted); font-size: 15px; padding: 14px 16px; }
   .mgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .mhead { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
@@ -437,6 +443,7 @@
     <h2>Kunden</h2>
     <label class="search"><svg><use href="#i-search"/></svg><input id="cSearch" type="search" placeholder="Suchen"></label>
     <div id="contacts"></div>
+    <button type="button" class="secondary" id="gContactsBtn" style="color:var(--violet)" hidden>Aus Google Kontakte übernehmen</button>
     <div class="card importbox" style="margin-top:6px">
       <div class="item" style="color:var(--violet)"><svg><use href="#i-import"/></svg>
         <div class="txt"><div class="ttl" style="font-size:16px;font-weight:600">Kontakte importieren</div>
@@ -496,6 +503,14 @@
       <div class="errbox" id="accSyncErr" hidden></div>
       <button type="button" class="primary" id="accSync">Jetzt abgleichen</button>
       <button type="button" class="danger" id="accOutBtn">Abmelden</button>
+
+      <div class="sec" style="margin-top:28px">Google Kalender und Kontakte</div>
+      <div class="group"><div class="field"><span class="flabel">Status</span><div id="gState" style="font-weight:600">Nicht verbunden</div></div></div>
+      <div class="errbox" id="gErr" hidden></div>
+      <p class="note" id="gHint" style="margin:0 4px 14px">Nach dem Verbinden erscheinen Ihre Google-Termine im Kalender. Termine und Aufgaben mit Frist aus der App werden in Google Kalender eingetragen. Ihre Google Kontakte füllen die Kundenliste.</p>
+      <button type="button" class="primary" id="gConnect">Mit Google verbinden</button>
+      <button type="button" class="secondary" id="gRefresh" hidden>Termine und Kontakte jetzt holen</button>
+      <button type="button" class="danger" id="gOff" hidden>Google trennen</button>
     </div>
   </section>
 
@@ -508,6 +523,7 @@
 <script src="parse.js"></script>
 <script>
   const KEY = "aufgaben-v1", CKEY = "kunden-v1";
+  let gOn = false;
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
@@ -525,7 +541,48 @@
     return i;
   });
   let contacts = readJSON(CKEY);
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(items)); localStorage.setItem(CKEY, JSON.stringify(contacts)); } catch {} if (window.Sync) Sync.changed(); }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); localStorage.setItem(CKEY, JSON.stringify(contacts)); } catch {}
+    gRemember();
+    if (window.Sync) Sync.changed();
+    if (!window.__syncApplying && typeof gSoon === "function") gSoon();
+  }
+
+  // Termine aus Google Kalender (nur Anzeige, zwischengespeichert)
+  const GKEY = "google-termine-v1", GMAP = "google-zuordnung-v1";
+  let gCache = (() => { try { return JSON.parse(localStorage.getItem(GKEY)) || null; } catch { return null; } })() || { from: "", to: "", at: 0, events: [] };
+  const gMapGet = () => { try { return JSON.parse(localStorage.getItem(GMAP)) || {}; } catch { return {}; } };
+  const gMapSet = (m) => { try { localStorage.setItem(GMAP, JSON.stringify(m)); } catch {} };
+  function gRemember() { // welche App-Einträge stehen unter welcher Nummer in Google (für späteres Löschen)
+    const m = gMapGet(); let ch = false;
+    for (const i of items) if (i.googleId && m[i.id] !== i.googleId) { m[i.id] = i.googleId; ch = true; }
+    if (ch) gMapSet(m);
+  }
+  function gAsItem(e) {
+    const st = e.allDay ? new Date(e.start + "T00:00") : new Date(e.start);
+    const en = e.allDay ? new Date((e.end || e.start) + "T00:00") : new Date(e.end || e.start);
+    return { id: "g-" + e.googleId, type: "event", google: true, googleId: e.googleId, allDay: e.allDay, text: e.text,
+      who: "", start: st.toISOString(), end: en.toISOString(), location: e.location, link: e.link };
+  }
+  let gMemo = null, gMemoKey = "";
+  function allEvents() {
+    const own = items.filter((i) => i.type === "event");
+    const key = gCache.at + "|" + items.length + "|" + items.reduce((n, i) => n + (i.googleId ? 1 : 0), 0);
+    if (key !== gMemoKey) {
+      const appIds = new Set([...items.map((i) => i.id), ...Object.keys(gMapGet())]);
+      const gIds = new Set(items.filter((i) => i.googleId).map((i) => i.googleId));
+      gMemo = gCache.events.filter((e) => !gIds.has(e.googleId) && !(e.fromApp && appIds.has(e.fromApp))).map(gAsItem);
+      gMemoKey = key;
+    }
+    return [...own, ...gMemo];
+  }
+  // liegt der Termin an diesem Tag? (ganztägige Termine können mehrere Tage dauern)
+  function evOnDay(i, key) {
+    if (!i.allDay) return ymd(new Date(i.start)) === key;
+    const a = ymd(new Date(i.start)), b = ymd(new Date(i.end));
+    return key >= a && (key < b || key === a);
+  }
+  const evSort = (a, b) => (b.allDay ? 1 : 0) - (a.allDay ? 1 : 0) || a.start.localeCompare(b.start);
   const deadline = (i) => !i.due ? null : i.due.length > 10 ? new Date(i.due) : new Date(i.due + "T23:59:59");
   const isLate = (i) => i.type === "task" && !i.done && i.due && deadline(i) < new Date();
   const cName = (c) => c.name || c.org || "Ohne Namen";
@@ -576,6 +633,8 @@
     if (view === "task") prepTask(opts.item, opts.who);
     if (view === "event") prepEvent(opts.item, opts.date);
     if (view === "contact") prepContact(opts.item);
+    if (view === "account" && typeof gPrefetch === "function") gPrefetch();
+    if (view === "contacts" && typeof gContactsAuto === "function") gContactsAuto();
     render();
     window.scrollTo(0, 0);
   }
@@ -847,16 +906,23 @@
     if (!$("evDate").value || !$("evFrom").value || !$("evTo").value) return $("evDate").focus();
     const [s, en] = evRange();
     const data = { text, who: $("evWho").value.trim(), start: s.toISOString(), end: en.toISOString() };
-    if (editEvent) Object.assign(editEvent, data);
+    if (editEvent && editEvent.google) items.push({ id: newId(), type: "event", ...data, googleId: editEvent.googleId, created: new Date().toISOString() });
+    else if (editEvent) Object.assign(editEvent, data);
     else items.push({ id: newId(), type: "event", ...data, created: new Date().toISOString() });
     save(); toast(editEvent ? "Änderung gespeichert" : "Termin gespeichert");
     go(editEvent ? "back" : "cal");
   });
   $("evDel").onclick = () => {
-    if (editEvent && confirm("Diesen Termin löschen?")) { items = items.filter((x) => x !== editEvent); save(); toast("Termin gelöscht"); go("back"); }
+    if (!editEvent || !confirm("Diesen Termin löschen?" + (editEvent.googleId || gOn ? " Er wird auch aus Google Kalender entfernt." : ""))) return;
+    if (editEvent.google) {
+      gCache.events = gCache.events.filter((e) => e.googleId !== editEvent.googleId); gCache.at = Date.now() - 1;
+      try { localStorage.setItem(GKEY, JSON.stringify(gCache)); } catch {}
+      const m = gMapGet(); m["g-" + editEvent.googleId] = editEvent.googleId; gMapSet(m);
+    }
+    items = items.filter((x) => x !== editEvent); save(); toast("Termin gelöscht"); go("back");
   };
 
-  function eventsAt(start, end) { return items.filter((i) => i.type === "event" && new Date(i.start) < end && new Date(i.end) > start); }
+  function eventsAt(start, end) { return allEvents().filter((i) => !i.allDay && new Date(i.start) < end && new Date(i.end) > start); }
   function showClash(el, clashes) {
     el.hidden = !clashes.length;
     if (clashes.length) el.querySelector("span").textContent =
@@ -998,12 +1064,14 @@
   function eventRow(i, withDate) {
     const li = document.createElement("li"); li.className = "item";
     const s = new Date(i.start), e = new Date(i.end);
-    const sub = [`<span>${icon("cal")}${withDate ? dayLabel(s) : "Termin"}</span>`];
+    const sub = [`<span>${icon("cal")}${withDate ? dayLabel(s) : i.google ? "Google Kalender" : "Termin"}</span>`];
     if (i.who) sub.push(`<span>${icon("user")}${esc(i.who)}</span>`);
-    li.innerHTML = `<div class="evbar"></div><div class="time"><b>${hm(s)}</b>${hm(e)}</div>
+    if (i.location) sub.push(`<span>${esc(i.location)}</span>`);
+    const time = i.allDay ? `<b style="font-size:13px">ganzer</b>Tag` : `<b>${hm(s)}</b>${hm(e)}`;
+    li.innerHTML = `<div class="evbar${i.google ? " g" : ""}"></div><div class="time">${time}</div>
       <button class="txt" style="margin-left:6px"><div class="ttl">${esc(i.text)}</div><div class="sub">${sub.join("")}</div></button>
       <svg class="chev"><use href="#i-chev"/></svg>`;
-    li.querySelector(".txt").onclick = () => go("event", { item: i });
+    li.querySelector(".txt").onclick = () => i.allDay ? (i.link && window.open(i.link, "_blank")) : go("event", { item: i });
     return li;
   }
   const card = (rows) => { const u = document.createElement("ul"); u.className = "card"; rows.forEach((r) => u.append(r)); return u; };
@@ -1050,7 +1118,7 @@
 
   // ---- Kalender ----
   function dayEntries(key) {
-    const evs = items.filter((i) => i.type === "event" && ymd(new Date(i.start)) === key).sort((a, b) => a.start.localeCompare(b.start));
+    const evs = allEvents().filter((i) => evOnDay(i, key)).sort(evSort);
     const tasks = items.filter((i) => i.type === "task" && !i.done && i.due && i.due.slice(0, 10) === key && !isLate(i)).sort((a, b) => a.prio - b.prio);
     return [evs, tasks];
   }
@@ -1084,7 +1152,7 @@
   function openDay(d) { calDate = new Date(d); calDate.setHours(0, 0, 0, 0); setCalMode("day"); window.scrollTo(0, 0); }
   function dayRows(d, opts = {}) {
     const key = ymd(d);
-    const evs = items.filter((i) => i.type === "event" && ymd(new Date(i.start)) === key).sort((a, b) => a.start.localeCompare(b.start));
+    const evs = allEvents().filter((i) => evOnDay(i, key)).sort(evSort);
     const tasks = items.filter((i) => i.type === "task" && i.due && i.due.slice(0, 10) === key && (!i.done || opts.withDone)).sort((a, b) => a.prio - b.prio);
     return [...evs.map((i) => eventRow(i)), ...tasks.map((i) => taskRow(i, { inDay: true }))];
   }
@@ -1092,6 +1160,12 @@
 
   function renderCal() {
     const box = $("cal"); box.innerHTML = "";
+    if (typeof gNeed === "function") gNeed();
+    if (window.Sync && Sync.user && !gOn) {
+      const b = document.createElement("button"); b.className = "gconnect";
+      b.innerHTML = `${icon("cal")}<span><b>Google Kalender verbinden</b>Ihre Google-Termine hier anzeigen</span>`;
+      b.onclick = () => go("account"); box.append(b);
+    }
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const fmt = (d, o) => d.toLocaleDateString("de-DE", o);
     let showToday = false;
@@ -1131,11 +1205,11 @@
       const weeks = Math.ceil(((first - start) / 864e5 + new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()) / 7);
       for (let n = 0; n < weeks * 7; n++) {
         const d = addDays(start, n), key = ymd(d);
-        const evs = items.filter((i) => i.type === "event" && ymd(new Date(i.start)) === key);
+        const evs = allEvents().filter((i) => evOnDay(i, key));
         const tasks = items.filter((i) => i.type === "task" && !i.done && i.due && i.due.slice(0, 10) === key);
         const c = document.createElement("button");
         c.className = "mcell" + (d.getMonth() !== first.getMonth() ? " out" : "") + (key === ymd(today) ? " today" : "");
-        const dots = [...evs.map(() => "var(--green)"), ...tasks.map((t) => isLate(t) ? "var(--red)" : ["", "var(--red)", "var(--amber)", "var(--muted)"][t.prio])].slice(0, 6);
+        const dots = [...evs.map((e) => e.google ? "var(--accent)" : "var(--green)"), ...tasks.map((t) => isLate(t) ? "var(--red)" : ["", "var(--red)", "var(--amber)", "var(--muted)"][t.prio])].slice(0, 6);
         c.innerHTML = `<span class="n">${d.getDate()}</span><span class="dots">${dots.map((col) => `<i style="background:${col}"></i>`).join("")}</span>`;
         c.setAttribute("aria-label", fmt(d, { weekday: "long", day: "numeric", month: "long" }) + (evs.length + tasks.length ? `, ${evs.length + tasks.length} Einträge` : ""));
         c.onclick = () => openDay(d);
@@ -1143,7 +1217,7 @@
       }
       box.append(grid);
       const p = document.createElement("p"); p.className = "note"; p.style.margin = "12px 4px";
-      p.innerHTML = '<span style="color:var(--green)">●</span> Termin &nbsp; <span style="color:var(--amber)">●</span> Aufgabe &nbsp; <span style="color:var(--red)">●</span> wichtig/überfällig · Tag antippen für Details';
+      p.innerHTML = '<span style="color:var(--green)">●</span> Termin &nbsp; <span style="color:var(--accent)">●</span> Google &nbsp; <span style="color:var(--amber)">●</span> Aufgabe &nbsp; <span style="color:var(--red)">●</span> wichtig/überfällig · Tag antippen für Details';
       box.append(p);
     }
     $("calToday").hidden = !showToday;
@@ -1167,7 +1241,7 @@
     // freie Zeit zwischen Terminen (8–18 Uhr) als Hilfe zum Planen
     const free = []; let t = new Date(now); t.setHours(8, 0, 0, 0); if (t < now) t = new Date(now);
     const endDay = new Date(now); endDay.setHours(18, 0, 0, 0);
-    for (const e of evs) { const s = new Date(e.start); if (s - t >= 30 * 60e3 && s <= endDay) free.push([new Date(t), s]); const en = new Date(e.end); if (en > t) t = en; }
+    for (const e of evs.filter((x) => !x.allDay)) { const s = new Date(e.start); if (s - t >= 30 * 60e3 && s <= endDay) free.push([new Date(t), s]); const en = new Date(e.end); if (en > t) t = en; }
     if (endDay - t >= 30 * 60e3) free.push([t, endDay]);
     if (free.length && (due.length || late.length)) {
       const p = document.createElement("p"); p.className = "note"; p.style.marginTop = "4px";
@@ -1190,7 +1264,7 @@
     $("nDay").textContent = evs.length + due.length + late;
     $("mDay").textContent = "Einträge heute";
     const wk = new Date(now); wk.setDate(now.getDate() + 7);
-    const week = items.filter((i) => i.type === "event" && new Date(i.end) > now && new Date(i.start) < wk).length;
+    const week = allEvents().filter((i) => new Date(i.end) > now && new Date(i.start) < wk).length;
     $("nWeek").textContent = week; $("mWeek").textContent = week === 1 ? "Termin in 7 Tagen" : "Termine in 7 Tagen";
     $("nContacts").textContent = contacts.length;
   }
@@ -1278,6 +1352,178 @@
   $("accOutBtn").onclick = async () => {
     if (confirm("Abmelden? Ihre Einträge bleiben auf diesem Gerät erhalten.")) { await Sync.signOut(); toast("Abgemeldet"); }
   };
+
+  // ================= Google Kalender und Kontakte =================
+  const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Berlin"; } catch { return "Europe/Berlin"; } })();
+  let gStarted = false, gEmail = "", gUrl = null, gUrlAt = 0, gWaitUntil = 0, gFetching = false, gBusy = false, gAgain = false, gTimer = null;
+  try { const st = JSON.parse(localStorage.getItem("google-status") || "null"); if (st) { gOn = !!st.on; gEmail = st.email || ""; } } catch {}
+  function gSetOn(on, email) {
+    const was = gOn; gOn = on; gEmail = on ? (email || gEmail) : "";
+    try { localStorage.setItem("google-status", JSON.stringify({ on, email: gEmail })); } catch {}
+    if (!on) { gCache = { from: "", to: "", at: 0, events: [] }; try { localStorage.removeItem(GKEY); } catch {} }
+    renderGoogle();
+    if (was !== on) render();
+  }
+  function gFail(e) {
+    console.warn("Google", e);
+    if (e && e.notConnected) gSetOn(false);
+    $("gErr").textContent = (e && e.message) || String(e); $("gErr").hidden = false;
+  }
+  function renderGoogle() {
+    $("gState").textContent = gOn ? "Verbunden" + (gEmail ? " mit " + gEmail : "") : gWaitUntil > Date.now() ? "Warte auf Freigabe bei Google …" : "Nicht verbunden";
+    $("gConnect").hidden = gOn; $("gRefresh").hidden = !gOn; $("gOff").hidden = !gOn; $("gHint").hidden = gOn;
+    $("gContactsBtn").hidden = !gOn;
+  }
+
+  // Verbinden: Google-Seite öffnen, danach regelmäßig nachsehen, ob die Freigabe da ist
+  async function gPrefetch() {
+    if (!Sync.user || gOn || (gUrl && Date.now() - gUrlAt < 10 * 60e3)) return;
+    try { gUrl = (await Sync.google("begin")).url; gUrlAt = Date.now(); } catch (e) { gUrl = null; }
+  }
+  $("gConnect").onclick = async () => {
+    $("gErr").hidden = true;
+    let w = null;
+    if (gUrl && Date.now() - gUrlAt < 10 * 60e3) w = window.open(gUrl, "_blank");
+    else {
+      w = window.open("", "_blank");
+      try { gUrl = (await Sync.google("begin")).url; gUrlAt = Date.now(); } catch (e) { if (w) w.close(); return gFail(e); }
+      if (w) w.location.href = gUrl;
+    }
+    if (!w) { location.href = gUrl; return; }
+    gUrl = null; gWaitUntil = Date.now() + 10 * 60e3; renderGoogle(); gPoll();
+  };
+  async function gCheck() {
+    if (!window.Sync || !Sync.user) return;
+    try {
+      const st = await Sync.google("status");
+      if (st.connected && !gOn) { gWaitUntil = 0; gSetOn(true, st.email); toast("Google ist verbunden"); gFetch(true); gContacts(false); gReconcile(); }
+      else if (!st.connected && gOn) gSetOn(false);
+      else if (st.connected) gSetOn(true, st.email);
+    } catch (e) { console.warn("Google-Status", e); }
+  }
+  function gPoll() {
+    if (gOn || Date.now() > gWaitUntil) { gWaitUntil = 0; renderGoogle(); return; }
+    gCheck().finally(() => setTimeout(gPoll, 4000));
+  }
+  $("gOff").onclick = async () => {
+    if (!confirm("Google trennen? Ihre Einträge in der App und in Google bleiben erhalten.")) return;
+    try { await Sync.google("disconnect"); gSetOn(false); toast("Google getrennt"); } catch (e) { gFail(e); }
+  };
+  $("gRefresh").onclick = async () => {
+    $("gErr").hidden = true; $("gRefresh").disabled = true;
+    try { await gFetch(true, true); await gContacts(true, true); gReconcile(); toast("Google ist aktuell"); }
+    catch (e) { gFail(e); } finally { $("gRefresh").disabled = false; }
+  };
+
+  // Termine holen (für den sichtbaren Zeitraum, mit Vorrat davor und danach)
+  function gRange() {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const a = calDate < today ? calDate : today, b = calDate > today ? calDate : today;
+    return [addDays(new Date(a.getFullYear(), a.getMonth(), 1), -7), addDays(new Date(b.getFullYear(), b.getMonth() + 1, 1), 45)];
+  }
+  function gNeed() {
+    if (!gOn || !window.Sync || !Sync.user || gFetching) return;
+    const [f, t] = gRange();
+    const covered = gCache.from && f.toISOString() >= gCache.from && t.toISOString() <= gCache.to;
+    if (!covered || Date.now() - gCache.at > 5 * 60e3) gFetch(false);
+  }
+  async function gFetch(force, throwErr) {
+    if (!gOn || !Sync.user || (gFetching && !force)) return;
+    gFetching = true;
+    try {
+      const [f, t] = gRange();
+      const r = await Sync.google("events", { from: f.toISOString(), to: t.toISOString() });
+      gCache = { from: f.toISOString(), to: t.toISOString(), at: Date.now(), events: r.events || [] };
+      try { localStorage.setItem(GKEY, JSON.stringify(gCache)); } catch {}
+      if (!["task", "event", "contact"].includes(current)) render();
+    } catch (e) {
+      gCache.at = Date.now(); // nicht sofort wieder versuchen
+      if (throwErr) throw e; console.warn("Google-Termine", e); if (e.notConnected) gSetOn(false);
+    } finally { gFetching = false; }
+  }
+
+  // App-Termine und Aufgaben mit Frist in Google Kalender eintragen
+  function gWant(i) {
+    if (i.type === "event") {
+      return { sig: JSON.stringify(["e", i.text, i.who, i.start, i.end]),
+        body: { text: i.text + (i.who ? " · " + i.who : ""), allDay: false, start: i.start, end: i.end, ...(i.who ? { description: "Kunde: " + i.who } : {}) } };
+    }
+    if (i.type === "task" && !i.done && i.due) {
+      const desc = ["Aufgabe aus der Aufgaben-App", "Priorität " + i.prio, i.who ? "Kunde: " + i.who : "", i.notes || ""].filter(Boolean).join("\n");
+      const body = { text: "Aufgabe: " + i.text + (i.who ? " · " + i.who : ""), description: desc };
+      if (i.due.length > 10) { const s = new Date(i.due); Object.assign(body, { allDay: false, start: s.toISOString(), end: new Date(s.getTime() + 30 * 60e3).toISOString() }); }
+      else { const d = new Date(i.due + "T00:00"); Object.assign(body, { allDay: true, start: i.due, end: ymd(addDays(d, 1)) }); }
+      return { sig: JSON.stringify(["t", i.text, i.who, i.due, i.prio, i.notes]), body };
+    }
+    return null;
+  }
+  function gSoon() { if (gOn) { clearTimeout(gTimer); gTimer = setTimeout(gReconcile, 800); } }
+  async function gReconcile() {
+    if (!gOn || !window.Sync || !Sync.user) return;
+    if (gBusy) { gAgain = true; return; }
+    gBusy = true; let changed = false;
+    try {
+      const map = gMapGet();
+      for (const i of [...items]) {
+        const w = gWant(i);
+        if (w) {
+          if (i.googleId && i.gSig === w.sig) continue;
+          const r = await Sync.google("upsert", { ...w.body, appId: i.id, googleId: i.googleId || undefined, timeZone: TZ });
+          if (r && r.googleId) { i.googleId = r.googleId; i.gSig = w.sig; map[i.id] = r.googleId; changed = true; }
+        } else if (i.googleId) {
+          await Sync.google("delete", { googleId: i.googleId });
+          delete map[i.id]; delete i.googleId; delete i.gSig; changed = true;
+        }
+      }
+      const ids = new Set(items.map((i) => i.id));
+      for (const [id, gid] of Object.entries(map)) {
+        if (ids.has(id)) continue;
+        await Sync.google("delete", { googleId: gid }); delete map[id];
+      }
+      gMapSet(map);
+    } catch (e) {
+      console.warn("Google-Eintrag", e); if (e.notConnected) gSetOn(false);
+    } finally {
+      gBusy = false;
+      if (changed) { window.__syncApplying = true; save(); window.__syncApplying = false; Sync.changed(); }
+      if (gAgain) { gAgain = false; setTimeout(gReconcile, 500); }
+    }
+  }
+
+  // Google Kontakte in die Kundenliste übernehmen
+  async function gContacts(manual, throwErr) {
+    if (!gOn || !Sync.user) return;
+    try {
+      const r = await Sync.google("contacts");
+      let added = 0, upd = 0;
+      for (const n of r.contacts || []) {
+        const id = "g-" + n.googleId, snap = JSON.stringify(n);
+        let ex = contacts.find((c) => c.id === id || c.googleId === n.googleId)
+          || contacts.find((c) => !c.googleId && (c.name || "").toLowerCase() === (n.name || "").toLowerCase() && (c.org || "") === (n.org || ""));
+        if (ex) {
+          if (ex.gSnap === snap) continue;
+          for (const k of ["name", "org", "phone", "email"]) if (n[k]) ex[k] = n[k];
+          ex.googleId = n.googleId; ex.gSnap = snap; upd++;
+        } else {
+          contacts.push({ id, name: n.name, org: n.org, phone: n.phone, email: n.email, notes: "", googleId: n.googleId, gSnap: snap }); added++;
+        }
+      }
+      try { localStorage.setItem("google-kontakte-zeit", String(Date.now())); } catch {}
+      if (added || upd) { save(); if (!["task", "event", "contact"].includes(current)) render(); }
+      if (manual) toast(added ? `${added} Kontakte übernommen` : "Kundenliste ist aktuell");
+    } catch (e) { if (throwErr) throw e; if (manual) toast("Kontakte konnten nicht geholt werden"); console.warn("Google-Kontakte", e); if (e.notConnected) gSetOn(false); }
+  }
+  function gContactsAuto() {
+    let t = 0; try { t = +localStorage.getItem("google-kontakte-zeit") || 0; } catch {}
+    if (gOn && Date.now() - t > 6 * 3600e3) gContacts(false);
+  }
+  $("gContactsBtn").onclick = () => gContacts(true);
+
+  renderGoogle();
+  Sync.onChange(() => { renderGoogle(); if (Sync.user && !gStarted) { gStarted = true; gCheck().then(() => { if (gOn) { gFetch(false); gReconcile(); } }); } });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Sync.user) { if (gWaitUntil) gCheck(); else gNeed(); } });
+  window.addEventListener("focus", () => { if (gWaitUntil && Sync.user) gCheck(); });
+
   Sync.setPhotoStore(getLocalPhoto, putPhoto);
   Sync.onChange(renderAccount);
   renderAccount();

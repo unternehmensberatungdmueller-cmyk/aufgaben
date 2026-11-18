@@ -144,6 +144,19 @@
     return (data && data.text) || "";
   }
 
+  // ---- Google Kalender / Kontakte (Edge Function "google") ----
+  async function google(action, body = {}) {
+    if (!sb || !user) throw new Error("Bitte zuerst anmelden");
+    const { data, error } = await sb.functions.invoke("google", { body: { action, ...body } });
+    if (!error) return data || {};
+    let msg = error.message || String(error), notConnected = false;
+    try { const j = await error.context.json(); if (j && j.error) msg = j.error; notConnected = !!(j && j.notConnected); } catch {}
+    if (/not found|404|Requested function/i.test(msg)) msg = "Die Google-Verbindung ist in Supabase noch nicht eingerichtet.";
+    if (/abgelaufen/i.test(msg)) notConnected = true;
+    const err = new Error(msg); err.notConnected = notConnected;
+    throw err;
+  }
+
   // ---- Anmeldung ----
   async function signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
@@ -179,7 +192,7 @@
   }
 
   window.Sync = {
-    enabled, init, syncNow, changed, transcribe, signIn, signUp, signOut, fetchPhoto, removePhoto,
+    enabled, init, syncNow, changed, transcribe, google, signIn, signUp, signOut, fetchPhoto, removePhoto,
     onChange: (f) => listeners.push(f),
     setPhotoStore: (get, put) => { localPhoto = get; storePhoto = put; },
     get user() { return user; }, get busy() { return busy; }, get lastOk() { return lastOk; }, get lastError() { return lastError; },
