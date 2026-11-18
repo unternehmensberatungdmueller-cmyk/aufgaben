@@ -127,6 +127,23 @@
     await sb.storage.from("fotos").remove([photoPath(id)]);
   }
 
+  // ---- Spracherkennung (Edge Function "transkribieren") ----
+  async function transcribe(blob, hint) {
+    if (!sb || !user) throw new Error("Bitte zuerst anmelden");
+    const ext = /mp4|m4a|aac/.test(blob.type) ? "m4a" : /webm/.test(blob.type) ? "webm" : /ogg/.test(blob.type) ? "ogg" : "m4a";
+    const fd = new FormData();
+    fd.append("audio", new File([blob], "aufnahme." + ext, { type: blob.type || "audio/mp4" }));
+    if (hint) fd.append("hint", hint);
+    const { data, error } = await sb.functions.invoke("transkribieren", { body: fd });
+    if (error) {
+      let msg = error.message || String(error);
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch {}
+      if (/not found|404|Requested function/i.test(msg)) msg = "Die Spracherkennung ist noch nicht eingerichtet.";
+      throw new Error(msg);
+    }
+    return (data && data.text) || "";
+  }
+
   // ---- Anmeldung ----
   async function signIn(email, password) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
@@ -162,7 +179,7 @@
   }
 
   window.Sync = {
-    enabled, init, syncNow, changed, signIn, signUp, signOut, fetchPhoto, removePhoto,
+    enabled, init, syncNow, changed, transcribe, signIn, signUp, signOut, fetchPhoto, removePhoto,
     onChange: (f) => listeners.push(f),
     setPhotoStore: (get, put) => { localPhoto = get; storePhoto = put; },
     get user() { return user; }, get busy() { return busy; }, get lastOk() { return lastOk; }, get lastError() { return lastError; },

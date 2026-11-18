@@ -74,10 +74,39 @@
   .ic-people { background: var(--violet-soft); color: var(--violet); }
 
   /* ---------- Kopfzeile Unterseiten ---------- */
-  .nav { display: flex; align-items: center; justify-content: space-between; height: 44px; margin-top: 4px; }
-  .back { display: flex; align-items: center; gap: 2px; color: var(--accent); font-size: 17px; padding: 10px 10px 10px 0; margin-left: -6px; }
-  .back svg { width: 24px; height: 24px; stroke-width: 2.4; }
-  .navbtn { color: var(--accent); font-size: 17px; font-weight: 600; padding: 10px 0 10px 10px; display: flex; align-items: center; gap: 4px; }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; margin-top: 6px; }
+  .back { display: flex; align-items: center; gap: 4px; color: var(--accent); background: var(--card); box-shadow: var(--shadow);
+    font-size: 18px; font-weight: 600; min-height: 50px; padding: 0 18px 0 10px; border-radius: 999px; transition: transform .1s; }
+  .back svg { width: 26px; height: 26px; stroke-width: 2.6; }
+  .navbtn { display: flex; align-items: center; gap: 6px; color: #fff; background: var(--accent); font-size: 18px; font-weight: 600;
+    min-height: 50px; padding: 0 20px 0 14px; border-radius: 999px; transition: transform .1s; }
+  .navbtn svg { width: 24px; height: 24px; stroke-width: 2.6; }
+  #v-cal .navbtn { background: var(--green); }
+  #v-contacts .navbtn { background: var(--violet); }
+  .back:active, .navbtn:active, .calnav button:active, .mcell:active { transform: scale(.96); }
+
+  /* Kalender-Ansichten */
+  .calnav { display: grid; grid-template-columns: 56px 1fr 56px; gap: 10px; align-items: center; margin: 4px 0 12px; }
+  .calnav .arrow { height: 56px; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); color: var(--text); display: grid; place-items: center; }
+  .calnav .arrow svg { width: 28px; height: 28px; stroke-width: 2.6; }
+  .calnav .ctitle { text-align: center; font-size: 19px; font-weight: 700; line-height: 1.2; }
+  .calnav .ctitle small { display: block; font-size: 14px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .todaybtn { display: block; margin: -4px auto 12px; color: var(--accent); font-weight: 600; font-size: 16px; padding: 8px 16px; border-radius: 999px; background: var(--accent-soft); }
+  .wday { display: flex; align-items: baseline; justify-content: space-between; margin: 16px 4px 8px; }
+  .wday button { font-size: 16px; font-weight: 700; color: var(--text); text-align: left; padding: 4px 0; }
+  .wday.today button { color: var(--accent); }
+  .wday .add { color: var(--green); font-size: 15px; font-weight: 600; padding: 6px 0 6px 12px; }
+  .freeday { color: var(--muted); font-size: 15px; padding: 14px 16px; }
+  .mgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .mhead { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+  .mcell { min-height: 58px; border-radius: 12px; background: var(--card); box-shadow: var(--shadow); display: flex; flex-direction: column;
+    align-items: center; padding: 6px 2px; gap: 4px; transition: transform .1s; }
+  .mcell.out { opacity: .35; }
+  .mcell .n { font-size: 16px; font-weight: 600; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; }
+  .mcell.today .n { background: var(--accent); color: #fff; }
+  .mcell.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .mcell .dots { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
+  .mcell .dots i { width: 6px; height: 6px; border-radius: 50%; display: block; }
   h2 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 16px; }
 
   /* ---------- Formulare ---------- */
@@ -114,11 +143,13 @@
   .mic.rec { background: var(--red) !important; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.45); } 100% { box-shadow: 0 0 0 16px rgba(229,72,77,0); } }
   .quickhint { font-size: 14px; color: var(--muted); margin: 0 4px 18px; }
-  .dictate { display: flex; gap: 10px; align-items: center; background: var(--accent); color: #fff; border-radius: 14px;
-    padding: 12px 14px; margin: 0 0 14px; font-size: 16px; font-weight: 600; line-height: 1.3; }
-  #v-event .dictate { background: var(--green); }
-  .dictate svg { width: 26px; height: 26px; stroke-width: 2.2; flex: none; animation: bob 1s ease-in-out infinite alternate; }
-  @keyframes bob { to { transform: translateY(4px); } }
+  .dictate { display: flex; gap: 10px; align-items: center; background: var(--accent-soft); color: var(--accent); border-radius: 14px;
+    padding: 12px 14px; margin: 0 0 14px; font-size: 15px; font-weight: 600; line-height: 1.3; }
+  #v-event .dictate { background: var(--green-soft); color: var(--green); }
+  .dictate svg { width: 22px; height: 22px; stroke-width: 2.2; flex: none; }
+  .dictate.err { background: var(--red-soft) !important; color: var(--red); }
+  .mic.busy svg { animation: spin 1s linear infinite; opacity: .7; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .recog { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--green); margin: -8px 4px 14px; }
   .recog svg { width: 15px; height: 15px; stroke-width: 2.6; }
 
@@ -277,7 +308,7 @@
         <textarea id="taskQuick" rows="2" placeholder="Einfach sagen oder schreiben …"></textarea>
         <button type="button" class="mic" data-for="taskQuick" aria-label="Sprechen"><svg><use href="#i-mic"/></svg></button>
       </div>
-      <div class="dictate" id="taskQuickDictate" hidden><svg><use href="#i-mic"/></svg><span>Jetzt auf der Tastatur unten das Mikrofon antippen und sprechen.</span></div>
+      <div class="dictate" id="taskQuickDictate" hidden><svg><use href="#i-mic"/></svg><span></span></div>
       <p class="quickhint" id="taskQuickHint">Zum Beispiel: „Morgen um 10 Uhr Herrn Becker wegen Vertrag anrufen, Priorität 1“. Die Felder unten füllen sich von selbst.</p>
       <div class="recog" id="taskRecog" hidden><svg><use href="#i-spark"/></svg><span></span></div>
     </div>
@@ -325,7 +356,7 @@
         <textarea id="evQuick" rows="2" placeholder="Einfach sagen oder schreiben …"></textarea>
         <button type="button" class="mic" data-for="evQuick" aria-label="Sprechen"><svg><use href="#i-mic"/></svg></button>
       </div>
-      <div class="dictate" id="evQuickDictate" hidden><svg><use href="#i-mic"/></svg><span>Jetzt auf der Tastatur unten das Mikrofon antippen und sprechen.</span></div>
+      <div class="dictate" id="evQuickDictate" hidden><svg><use href="#i-mic"/></svg><span></span></div>
       <p class="quickhint">Zum Beispiel: „Freitag von 10 bis 11 Uhr Besprechung mit Firma Schulz“.</p>
       <div class="recog" id="evRecog" hidden><svg><use href="#i-spark"/></svg><span></span></div>
     </div>
@@ -383,8 +414,19 @@
   <!-- ===== Kalender ===== -->
   <section class="view" id="v-cal">
     <div class="nav"><button class="back" data-go="home"><svg><use href="#i-back"/></svg>Start</button>
-      <button class="navbtn" data-go="event"><svg><use href="#i-plus"/></svg>Termin</button></div>
+      <button class="navbtn" id="calAdd"><svg><use href="#i-plus"/></svg>Termin</button></div>
     <h2>Kalender</h2>
+    <div class="seg" id="calMode" style="margin-bottom:12px">
+      <button type="button" data-m="day">Tag</button>
+      <button type="button" data-m="week" class="sel">Woche</button>
+      <button type="button" data-m="month">Monat</button>
+    </div>
+    <div class="calnav">
+      <button class="arrow" id="calPrev" aria-label="Zurück"><svg><use href="#i-back"/></svg></button>
+      <div class="ctitle" id="calTitle"></div>
+      <button class="arrow" id="calNext" aria-label="Weiter"><svg><use href="#i-chev"/></svg></button>
+    </div>
+    <button class="todaybtn" id="calToday" hidden>Zu heute springen</button>
     <div id="cal"></div>
   </section>
 
@@ -532,7 +574,7 @@
     if (view !== current) { prev = current; current = view; }
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === "v-" + view));
     if (view === "task") prepTask(opts.item, opts.who);
-    if (view === "event") prepEvent(opts.item);
+    if (view === "event") prepEvent(opts.item, opts.date);
     if (view === "contact") prepContact(opts.item);
     render();
     window.scrollTo(0, 0);
@@ -549,39 +591,111 @@
   }
 
   // ================= Spracheingabe =================
-  // Auf iPhone/iPad ist die Diktierfunktion der Tastatur am zuverlässigsten
-  // (die Browser-Spracherkennung funktioniert in Home-Bildschirm-Apps oft nicht).
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const useSR = SR && !isIOS;
-  let rec = null, recBtn = null;
-  function stopListening() { if (rec) { try { rec.stop(); } catch {} } }
-  function keyboardDictation(box) {
-    const hint = $(box.id + "Dictate");
-    box.focus();
-    if (hint) {
-      hint.hidden = false;
-      const hide = () => { hint.hidden = true; box.removeEventListener("input", hide); box.removeEventListener("blur", hide); };
-      box.addEventListener("input", hide); box.addEventListener("blur", hide);
+  // Die App nimmt selbst auf und lässt die Aufnahme online in Text umwandeln.
+  // (Die eingebaute Spracherkennung von iOS liefert in Home-Bildschirm-Apps oft keinen Text.)
+  let mic = null; // { btn, box, rec, stream, ctx, chunks, timer, cancelled }
+  function micStatus(box, text, kind) {
+    const el = $(box.id + "Dictate"); if (!el) return;
+    el.hidden = !text; el.classList.toggle("err", kind === "err");
+    el.querySelector("span").textContent = text || "";
+    clearTimeout(el._t);
+    if (kind === "err") el._t = setTimeout(() => (el.hidden = true), 7000);
+  }
+  function micCleanup() {
+    if (!mic) return;
+    clearInterval(mic.timer); cancelAnimationFrame(mic.raf);
+    try { mic.stream && mic.stream.getTracks().forEach((t) => t.stop()); } catch {}
+    try { mic.ctx && mic.ctx.close(); } catch {}
+    mic.btn.classList.remove("rec");
+  }
+  function stopListening() {               // beim Verlassen der Seite: Aufnahme verwerfen
+    if (!mic) return;
+    mic.cancelled = true;
+    try { if (mic.rec && mic.rec.state !== "inactive") mic.rec.stop(); } catch {}
+    micCleanup(); micStatus(mic.box, ""); mic = null;
+  }
+  function pickType() {
+    if (!window.MediaRecorder) return null;
+    for (const t of ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/aac"]) if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+    return "";
+  }
+  async function startMic(btn, box) {
+    if (!window.Sync || !Sync.enabled) return micStatus(box, "Spracheingabe ist noch nicht eingerichtet.", "err");
+    if (!Sync.user) return micStatus(box, "Für die Spracheingabe bitte zuerst anmelden: Startseite, ganz unten „Abgleich“.", "err");
+    const type = pickType();
+    if (type === null || !navigator.mediaDevices) return micStatus(box, "Dieses Gerät erlaubt keine Aufnahme.", "err");
+    const m = mic = { btn, box, chunks: [], cancelled: false, started: Date.now(), heard: false, quietSince: 0 };
+    btn.classList.add("rec");
+    micStatus(box, "Mikrofon wird gestartet …");
+    try {
+      // AudioContext direkt im Tipp starten (iOS verlangt das)
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { m.ctx = new AC(); m.ctx.resume && m.ctx.resume(); }
+      m.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      micCleanup(); mic = null;
+      return micStatus(box, e && e.name === "NotAllowedError"
+        ? "Kein Zugriff aufs Mikrofon. Bitte in den iPhone-Einstellungen unter Safari das Mikrofon erlauben."
+        : "Mikrofon konnte nicht gestartet werden.", "err");
     }
+    if (m.cancelled) { micCleanup(); return; }
+    m.rec = type ? new MediaRecorder(m.stream, { mimeType: type }) : new MediaRecorder(m.stream);
+    m.rec.ondataavailable = (e) => e.data && e.data.size && m.chunks.push(e.data);
+    m.rec.onstop = () => finishMic(m);
+    m.rec.start(250);
+    // Stille erkennen: nach dem Sprechen 1,6 Sekunden Ruhe -> automatisch beenden
+    try {
+      const src = m.ctx.createMediaStreamSource(m.stream), an = m.ctx.createAnalyser();
+      an.fftSize = 1024; src.connect(an); const buf = new Uint8Array(an.fftSize);
+      const loop = () => {
+        if (mic !== m) return;
+        an.getByteTimeDomainData(buf);
+        let sum = 0; for (const v of buf) { const x = (v - 128) / 128; sum += x * x; }
+        const rms = Math.sqrt(sum / buf.length), now = Date.now();
+        if (rms > 0.04) { m.heard = true; m.quietSince = 0; }
+        else if (m.heard) { m.quietSince = m.quietSince || now; if (now - m.quietSince > 1600) return stopMic(); }
+        m.raf = requestAnimationFrame(loop);
+      };
+      loop();
+    } catch {}
+    const tick = () => {
+      const sec = Math.floor((Date.now() - m.started) / 1000);
+      micStatus(box, `Ich höre zu … ${sec} s  ·  Zum Beenden auf das rote Mikrofon tippen`);
+      if (sec >= 60) stopMic();
+    };
+    tick(); m.timer = setInterval(tick, 500);
+  }
+  function stopMic() {
+    if (!mic) return;
+    try { if (mic.rec && mic.rec.state !== "inactive") mic.rec.stop(); else { micCleanup(); mic = null; } } catch { micCleanup(); mic = null; }
+  }
+  async function finishMic(m) {
+    micCleanup();
+    if (mic === m) mic = null;
+    if (m.cancelled) return;
+    const blob = new Blob(m.chunks, { type: (m.rec && m.rec.mimeType) || "audio/mp4" });
+    if (blob.size < 2000 || Date.now() - m.started < 600) return micStatus(m.box, "Nichts gehört. Bitte nochmal auf das Mikrofon tippen und sprechen.", "err");
+    m.btn.classList.add("busy"); m.btn.disabled = true;
+    micStatus(m.box, "Wird in Text umgewandelt …");
+    try {
+      const hint = allNames().slice(0, 60).join(", ");
+      const text = await Sync.transcribe(blob, hint);
+      if (!text) micStatus(m.box, "Nichts verstanden. Bitte nochmal versuchen.", "err");
+      else {
+        micStatus(m.box, "");
+        m.box.value = (m.box.value.trim() ? m.box.value.trim() + " " : "") + text;
+        m.box.dispatchEvent(new Event("input"));
+      }
+    } catch (e) {
+      micStatus(m.box, "Spracherkennung fehlgeschlagen: " + ((e && e.message) || e), "err");
+    } finally { m.btn.classList.remove("busy"); m.btn.disabled = false; }
   }
   document.querySelectorAll(".mic").forEach((btn) => btn.addEventListener("click", () => {
     const box = $(btn.dataset.for);
-    if (rec) { stopListening(); return; }
-    if (!useSR) { keyboardDictation(box); return; }
-    const base = box.value ? box.value.trim() + " " : "";
-    let heard = false;
-    rec = new SR(); rec.lang = "de-DE"; rec.interimResults = true; rec.continuous = false;
-    recBtn = btn; btn.classList.add("rec");
-    rec.onresult = (e) => {
-      heard = true;
-      let txt = ""; for (const r of e.results) txt += r[0].transcript;
-      box.value = base + txt; box.dispatchEvent(new Event("input"));
-    };
-    const end = () => { if (recBtn) recBtn.classList.remove("rec"); rec = null; recBtn = null; };
-    rec.onend = () => { end(); if (!heard) keyboardDictation(box); };
-    rec.onerror = () => { heard = heard || false; };
-    try { rec.start(); } catch { end(); keyboardDictation(box); }
+    if (btn.disabled) return;
+    if (mic && mic.btn === btn) return stopMic();
+    if (mic) stopListening();
+    startMic(btn, box);
   }));
 
   function recogText(r, el) {
@@ -693,7 +807,7 @@
     }
     recogText(r, $("evRecog")); checkEvClash();
   });
-  function prepEvent(item) {
+  function prepEvent(item, date) {
     editEvent = item || null; evTouched = {};
     $("eventForm").reset(); $("evQuick").value = ""; $("evWarn").hidden = true; $("evRecog").hidden = true;
     $("evTitle").textContent = item ? "Termin bearbeiten" : "Neuer Termin";
@@ -707,6 +821,7 @@
       $("evTo").value = pad(en.getHours()) + ":" + pad(en.getMinutes());
     } else {
       const d = new Date(); d.setMinutes(0); d.setHours(d.getHours() + 1);
+      if (date && ymd(date) !== ymd(new Date())) { d.setFullYear(date.getFullYear(), date.getMonth(), date.getDate()); d.setHours(9); }
       $("evDate").value = ymd(d); $("evFrom").value = pad(d.getHours()) + ":00"; $("evTo").value = pad((d.getHours() + 1) % 24) + ":00";
       setTimeout(() => $("evQuick").focus(), 60);
     }
@@ -939,25 +1054,99 @@
     const tasks = items.filter((i) => i.type === "task" && !i.done && i.due && i.due.slice(0, 10) === key && !isLate(i)).sort((a, b) => a.prio - b.prio);
     return [evs, tasks];
   }
+  let calMode = "week", calDate = new Date(); calDate.setHours(0, 0, 0, 0);
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const weekStart = (d) => addDays(d, -((d.getDay() + 6) % 7));
+  const kw = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day); const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y) / 864e5 + 1) / 7); };
+  function setCalMode(m) { calMode = m; $("calMode").querySelectorAll("button").forEach((b) => b.classList.toggle("sel", b.dataset.m === m)); renderCal(); }
+  $("calMode").querySelectorAll("button").forEach((b) => (b.onclick = () => setCalMode(b.dataset.m)));
+  function calStep(dir) {
+    if (calMode === "day") calDate = addDays(calDate, dir);
+    else if (calMode === "week") calDate = addDays(calDate, 7 * dir);
+    else { calDate = new Date(calDate.getFullYear(), calDate.getMonth() + dir, 1); }
+    renderCal();
+  }
+  $("calPrev").onclick = () => calStep(-1);
+  $("calNext").onclick = () => calStep(1);
+  $("calToday").onclick = () => { calDate = new Date(); calDate.setHours(0, 0, 0, 0); renderCal(); };
+  $("calAdd").onclick = () => go("event", { date: calMode === "day" ? calDate : null });
+  // Wischen nach links/rechts blättert weiter
+  (() => {
+    let x0 = null, y0 = null;
+    $("cal").addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    $("cal").addEventListener("touchend", (e) => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) calStep(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  })();
+  function openDay(d) { calDate = new Date(d); calDate.setHours(0, 0, 0, 0); setCalMode("day"); window.scrollTo(0, 0); }
+  function dayRows(d, opts = {}) {
+    const key = ymd(d);
+    const evs = items.filter((i) => i.type === "event" && ymd(new Date(i.start)) === key).sort((a, b) => a.start.localeCompare(b.start));
+    const tasks = items.filter((i) => i.type === "task" && i.due && i.due.slice(0, 10) === key && (!i.done || opts.withDone)).sort((a, b) => a.prio - b.prio);
+    return [...evs.map((i) => eventRow(i)), ...tasks.map((i) => taskRow(i, { inDay: true }))];
+  }
+  function freeCard(txt) { const c = document.createElement("div"); c.className = "card"; c.innerHTML = `<div class="freeday">${esc(txt)}</div>`; return c; }
+
   function renderCal() {
     const box = $("cal"); box.innerHTML = "";
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const late = items.filter(isLate).sort((a, b) => deadline(a) - deadline(b));
-    if (late.length) { box.append(sec("Überfällig", "late")); box.append(card(late.map((i) => taskRow(i)))); }
-    let shown = 0;
-    for (let n = 0; n < 28; n++) {
-      const d = new Date(today); d.setDate(today.getDate() + n);
-      const [evs, tasks] = dayEntries(ymd(d));
-      if (!evs.length && !tasks.length && n > 0) continue;
-      shown++;
-      box.append(sec((n === 0 ? "Heute · " : n === 1 ? "Morgen · " : "") + longDate(d), n === 0 ? "today" : ""));
-      if (!evs.length && !tasks.length) { const p = document.createElement("div"); p.className = "card"; p.innerHTML = '<div class="item" style="color:var(--muted)">Keine Termine</div>'; box.append(p); continue; }
-      box.append(card([...evs.map((i) => eventRow(i)), ...tasks.map((i) => taskRow(i, { inDay: true }))]));
+    const fmt = (d, o) => d.toLocaleDateString("de-DE", o);
+    let showToday = false;
+    if (calMode === "day") {
+      const d = calDate, isToday = ymd(d) === ymd(today);
+      $("calTitle").innerHTML = esc(fmt(d, { weekday: "long" })) + `<small>${esc(fmt(d, { day: "numeric", month: "long", year: "numeric" }))}${isToday ? " · Heute" : ""}</small>`;
+      showToday = !isToday;
+      if (isToday) {
+        const late = items.filter(isLate).sort((a, b) => deadline(a) - deadline(b));
+        if (late.length) { box.append(sec("Überfällig", "late")); box.append(card(late.map((i) => taskRow(i)))); box.append(sec("Heute")); }
+      }
+      const rows = dayRows(d);
+      box.append(rows.length ? card(rows) : freeCard("Keine Termine oder Aufgaben an diesem Tag."));
+      const add = document.createElement("button"); add.className = "secondary"; add.style.color = "var(--green)";
+      add.textContent = "+ Termin an diesem Tag"; add.onclick = () => go("event", { date: d }); box.append(add);
+    } else if (calMode === "week") {
+      const ws = weekStart(calDate), we = addDays(ws, 6);
+      $("calTitle").innerHTML = `KW ${kw(ws)}<small>${esc(fmt(ws, { day: "numeric", month: "short" }))} – ${esc(fmt(we, { day: "numeric", month: "short", year: "numeric" }))}</small>`;
+      showToday = !(today >= ws && today <= we);
+      for (let n = 0; n < 7; n++) {
+        const d = addDays(ws, n), isToday = ymd(d) === ymd(today);
+        const h = document.createElement("div"); h.className = "wday" + (isToday ? " today" : "");
+        h.innerHTML = `<button>${esc(fmt(d, { weekday: "long", day: "numeric", month: "short" }))}${isToday ? " · Heute" : ""}</button><button class="add">+ Termin</button>`;
+        h.firstChild.onclick = () => openDay(d);
+        h.lastChild.onclick = () => go("event", { date: d });
+        box.append(h);
+        const rows = dayRows(d);
+        box.append(rows.length ? card(rows) : freeCard("frei"));
+      }
+    } else {
+      const first = new Date(calDate.getFullYear(), calDate.getMonth(), 1);
+      $("calTitle").innerHTML = esc(fmt(first, { month: "long" })) + `<small>${first.getFullYear()}</small>`;
+      showToday = !(today.getMonth() === first.getMonth() && today.getFullYear() === first.getFullYear());
+      const grid = document.createElement("div"); grid.className = "mgrid";
+      ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach((w) => { const h = document.createElement("div"); h.className = "mhead"; h.textContent = w; grid.append(h); });
+      const start = weekStart(first);
+      const weeks = Math.ceil(((first - start) / 864e5 + new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()) / 7);
+      for (let n = 0; n < weeks * 7; n++) {
+        const d = addDays(start, n), key = ymd(d);
+        const evs = items.filter((i) => i.type === "event" && ymd(new Date(i.start)) === key);
+        const tasks = items.filter((i) => i.type === "task" && !i.done && i.due && i.due.slice(0, 10) === key);
+        const c = document.createElement("button");
+        c.className = "mcell" + (d.getMonth() !== first.getMonth() ? " out" : "") + (key === ymd(today) ? " today" : "");
+        const dots = [...evs.map(() => "var(--green)"), ...tasks.map((t) => isLate(t) ? "var(--red)" : ["", "var(--red)", "var(--amber)", "var(--muted)"][t.prio])].slice(0, 6);
+        c.innerHTML = `<span class="n">${d.getDate()}</span><span class="dots">${dots.map((col) => `<i style="background:${col}"></i>`).join("")}</span>`;
+        c.setAttribute("aria-label", fmt(d, { weekday: "long", day: "numeric", month: "long" }) + (evs.length + tasks.length ? `, ${evs.length + tasks.length} Einträge` : ""));
+        c.onclick = () => openDay(d);
+        grid.append(c);
+      }
+      box.append(grid);
+      const p = document.createElement("p"); p.className = "note"; p.style.margin = "12px 4px";
+      p.innerHTML = '<span style="color:var(--green)">●</span> Termin &nbsp; <span style="color:var(--amber)">●</span> Aufgabe &nbsp; <span style="color:var(--red)">●</span> wichtig/überfällig · Tag antippen für Details';
+      box.append(p);
     }
-    if (shown <= 1 && !late.length) {
-      const p = document.createElement("p"); p.className = "note"; p.style.marginTop = "12px";
-      p.textContent = "In den nächsten 4 Wochen stehen keine weiteren Termine oder Fristen an."; box.append(p);
-    }
+    $("calToday").hidden = !showToday;
   }
 
   // ---- Tagesübersicht ----
