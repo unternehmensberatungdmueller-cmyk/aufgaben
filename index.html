@@ -114,6 +114,11 @@
   .mic.rec { background: var(--red) !important; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.45); } 100% { box-shadow: 0 0 0 16px rgba(229,72,77,0); } }
   .quickhint { font-size: 14px; color: var(--muted); margin: 0 4px 18px; }
+  .dictate { display: flex; gap: 10px; align-items: center; background: var(--accent); color: #fff; border-radius: 14px;
+    padding: 12px 14px; margin: 0 0 14px; font-size: 16px; font-weight: 600; line-height: 1.3; }
+  #v-event .dictate { background: var(--green); }
+  .dictate svg { width: 26px; height: 26px; stroke-width: 2.2; flex: none; animation: bob 1s ease-in-out infinite alternate; }
+  @keyframes bob { to { transform: translateY(4px); } }
   .recog { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--green); margin: -8px 4px 14px; }
   .recog svg { width: 15px; height: 15px; stroke-width: 2.6; }
 
@@ -272,6 +277,7 @@
         <textarea id="taskQuick" rows="2" placeholder="Einfach sagen oder schreiben …"></textarea>
         <button type="button" class="mic" data-for="taskQuick" aria-label="Sprechen"><svg><use href="#i-mic"/></svg></button>
       </div>
+      <div class="dictate" id="taskQuickDictate" hidden><svg><use href="#i-mic"/></svg><span>Jetzt auf der Tastatur unten das Mikrofon antippen und sprechen.</span></div>
       <p class="quickhint" id="taskQuickHint">Zum Beispiel: „Morgen um 10 Uhr Herrn Becker wegen Vertrag anrufen, Priorität 1“. Die Felder unten füllen sich von selbst.</p>
       <div class="recog" id="taskRecog" hidden><svg><use href="#i-spark"/></svg><span></span></div>
     </div>
@@ -319,6 +325,7 @@
         <textarea id="evQuick" rows="2" placeholder="Einfach sagen oder schreiben …"></textarea>
         <button type="button" class="mic" data-for="evQuick" aria-label="Sprechen"><svg><use href="#i-mic"/></svg></button>
       </div>
+      <div class="dictate" id="evQuickDictate" hidden><svg><use href="#i-mic"/></svg><span>Jetzt auf der Tastatur unten das Mikrofon antippen und sprechen.</span></div>
       <p class="quickhint">Zum Beispiel: „Freitag von 10 bis 11 Uhr Besprechung mit Firma Schulz“.</p>
       <div class="recog" id="evRecog" hidden><svg><use href="#i-spark"/></svg><span></span></div>
     </div>
@@ -542,31 +549,39 @@
   }
 
   // ================= Spracheingabe =================
+  // Auf iPhone/iPad ist die Diktierfunktion der Tastatur am zuverlässigsten
+  // (die Browser-Spracherkennung funktioniert in Home-Bildschirm-Apps oft nicht).
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const useSR = SR && !isIOS;
   let rec = null, recBtn = null;
   function stopListening() { if (rec) { try { rec.stop(); } catch {} } }
+  function keyboardDictation(box) {
+    const hint = $(box.id + "Dictate");
+    box.focus();
+    if (hint) {
+      hint.hidden = false;
+      const hide = () => { hint.hidden = true; box.removeEventListener("input", hide); box.removeEventListener("blur", hide); };
+      box.addEventListener("input", hide); box.addEventListener("blur", hide);
+    }
+  }
   document.querySelectorAll(".mic").forEach((btn) => btn.addEventListener("click", () => {
     const box = $(btn.dataset.for);
     if (rec) { stopListening(); return; }
-    if (!SR) {                                       // Fallback: Diktierfunktion der Tastatur
-      box.focus();
-      toast("Bitte das Mikrofon auf der Tastatur antippen");
-      return;
-    }
+    if (!useSR) { keyboardDictation(box); return; }
     const base = box.value ? box.value.trim() + " " : "";
+    let heard = false;
     rec = new SR(); rec.lang = "de-DE"; rec.interimResults = true; rec.continuous = false;
     recBtn = btn; btn.classList.add("rec");
     rec.onresult = (e) => {
+      heard = true;
       let txt = ""; for (const r of e.results) txt += r[0].transcript;
       box.value = base + txt; box.dispatchEvent(new Event("input"));
     };
     const end = () => { if (recBtn) recBtn.classList.remove("rec"); rec = null; recBtn = null; };
-    rec.onend = end;
-    rec.onerror = (e) => {
-      end();
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") { box.focus(); toast("Bitte das Mikrofon auf der Tastatur antippen"); }
-    };
-    try { rec.start(); } catch { end(); box.focus(); }
+    rec.onend = () => { end(); if (!heard) keyboardDictation(box); };
+    rec.onerror = () => { heard = heard || false; };
+    try { rec.start(); } catch { end(); keyboardDictation(box); }
   }));
 
   function recogText(r, el) {
