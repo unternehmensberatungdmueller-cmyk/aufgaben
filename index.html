@@ -1161,9 +1161,10 @@
   function renderCal() {
     const box = $("cal"); box.innerHTML = "";
     if (typeof gNeed === "function") gNeed();
-    if (window.Sync && Sync.user && !gOn) {
+    if (window.Sync && Sync.enabled && !gOn) {
       const b = document.createElement("button"); b.className = "gconnect";
-      b.innerHTML = `${icon("cal")}<span><b>Google Kalender verbinden</b>Ihre Google-Termine hier anzeigen</span>`;
+      b.innerHTML = Sync.user ? `${icon("cal")}<span><b>Google Kalender verbinden</b>Hier tippen, um Ihre Google-Termine anzuzeigen</span>`
+        : `${icon("cal")}<span><b>Google Kalender verbinden</b>Dafür zuerst hier tippen und in der App anmelden</span>`;
       b.onclick = () => go("account"); box.append(b);
     }
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1520,7 +1521,12 @@
   $("gContactsBtn").onclick = () => gContacts(true);
 
   renderGoogle();
-  Sync.onChange(() => { renderGoogle(); if (Sync.user && !gStarted) { gStarted = true; gCheck().then(() => { if (gOn) { gFetch(false); gReconcile(); } }); } });
+  let gLastUser = null;
+  Sync.onChange(() => {
+    renderGoogle();
+    const uid = Sync.user ? Sync.user.id : null;
+    if (uid !== gLastUser) { gLastUser = uid; if (!["task", "event", "contact"].includes(current)) render(); }
+    if (Sync.user && !gStarted) { gStarted = true; gCheck().then(() => { if (gOn) { gFetch(false); gReconcile(); } }); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && Sync.user) { if (gWaitUntil) gCheck(); else gNeed(); } });
   window.addEventListener("focus", () => { if (gWaitUntil && Sync.user) gCheck(); });
 
