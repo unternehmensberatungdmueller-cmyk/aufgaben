@@ -184,6 +184,16 @@
   .daysum b { display: block; font-size: 26px; letter-spacing: -0.02em; }
   .daysum span { font-size: 13px; color: var(--muted); font-weight: 600; }
 
+  /* Konto / Abgleich */
+  .syncrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin-top: 18px;
+    background: var(--card); box-shadow: var(--shadow); border-radius: var(--r); padding: 14px 16px; }
+  .syncrow .dotst { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+  .syncrow .dotst.ok { background: var(--green); } .syncrow .dotst.err { background: var(--red); }
+  .syncrow .dotst.busy { background: var(--amber); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .syncrow .t1 { font-size: 15px; font-weight: 600; } .syncrow .t2 { font-size: 13px; color: var(--muted); }
+  .errbox { color: var(--red); background: var(--red-soft); border-radius: 12px; padding: 10px 12px; font-size: 15px; margin: 0 0 14px; }
+  .secondary { width: 100%; min-height: 50px; margin-top: 10px; border-radius: 14px; color: var(--accent); font-weight: 600; background: var(--card); box-shadow: var(--shadow); }
   .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translate(-50%, 20px);
     background: var(--text); color: var(--bg); padding: 12px 18px; border-radius: 999px; font-weight: 600; font-size: 15px;
     opacity: 0; pointer-events: none; transition: .25s; display: flex; align-items: center; gap: 8px; z-index: 20; white-space: nowrap; }
@@ -246,6 +256,11 @@
         <span><div class="num" id="nContacts">0</div><div class="lbl">Kunden</div><div class="meta">Kontakte</div></span>
       </button>
     </div>
+    <button class="syncrow" data-go="account" id="syncRow" hidden>
+      <span class="dotst" id="syncDot"></span>
+      <span style="flex:1"><div class="t1" id="syncT1">Abgleich aus</div><div class="t2" id="syncT2">Anmelden, damit iPhone und Mac dasselbe zeigen</div></span>
+      <svg class="chev"><use href="#i-chev"/></svg>
+    </button>
   </section>
 
   <!-- ===== Aufgabe anlegen / bearbeiten ===== -->
@@ -406,10 +421,37 @@
     </form>
   </section>
 
+  <!-- ===== Konto / Abgleich ===== -->
+  <section class="view" id="v-account">
+    <div class="nav"><button class="back" data-go="home"><svg><use href="#i-back"/></svg>Start</button></div>
+    <h2>Abgleich</h2>
+    <div id="accOut">
+      <p class="note" style="margin:0 4px 16px">Melden Sie sich auf iPhone und Mac mit derselben E-Mail-Adresse an. Dann sehen beide Geräte immer dieselben Aufgaben, Termine, Kunden und Fotos.</p>
+      <form id="accForm" autocomplete="on">
+        <div class="group">
+          <div class="field"><label for="accEmail">E-Mail-Adresse</label><input id="accEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="off"></div>
+          <div class="field"><label for="accPw">Passwort</label><input id="accPw" type="password" autocomplete="current-password" placeholder="mindestens 8 Zeichen"></div>
+        </div>
+        <div class="errbox" id="accErr" hidden></div>
+        <button type="submit" class="primary">Anmelden</button>
+        <button type="button" class="secondary" id="accSignup">Neues Konto anlegen</button>
+      </form>
+    </div>
+    <div id="accIn" hidden>
+      <div class="group"><div class="field"><span class="flabel">Angemeldet als</span><div id="accWho" style="font-weight:600"></div></div>
+        <div class="field"><span class="flabel">Letzter Abgleich</span><div id="accLast"></div></div></div>
+      <div class="errbox" id="accSyncErr" hidden></div>
+      <button type="button" class="primary" id="accSync">Jetzt abgleichen</button>
+      <button type="button" class="danger" id="accOutBtn">Abmelden</button>
+    </div>
+  </section>
+
 </main>
 <div class="toast" id="toast"><svg><use href="#i-check"/></svg><span></span></div>
 <div class="lightbox" id="lightbox" hidden><img alt="Foto"></div>
 
+<script src="config.js"></script>
+<script src="supabase.js"></script>
 <script src="parse.js"></script>
 <script>
   const KEY = "aufgaben-v1", CKEY = "kunden-v1";
@@ -430,7 +472,7 @@
     return i;
   });
   let contacts = readJSON(CKEY);
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(items)); localStorage.setItem(CKEY, JSON.stringify(contacts)); } catch {} }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(items)); localStorage.setItem(CKEY, JSON.stringify(contacts)); } catch {} if (window.Sync) Sync.changed(); }
   const deadline = (i) => !i.due ? null : i.due.length > 10 ? new Date(i.due) : new Date(i.due + "T23:59:59");
   const isLate = (i) => i.type === "task" && !i.done && i.due && deadline(i) < new Date();
   const cName = (c) => c.name || c.org || "Ohne Namen";
@@ -453,8 +495,9 @@
     });
   }
   const putPhoto = (id, blob) => photoOp("readwrite", (s) => s.put(blob, id));
-  const getPhoto = (id) => photoOp("readonly", (s) => s.get(id));
-  const delPhoto = (id) => photoOp("readwrite", (s) => s.delete(id));
+  const getLocalPhoto = (id) => photoOp("readonly", (s) => s.get(id));
+  const getPhoto = async (id) => (await getLocalPhoto(id)) || (window.Sync ? await Sync.fetchPhoto(id) : null);
+  const delPhoto = (id) => { if (window.Sync) Sync.removePhoto(id).catch(() => {}); return photoOp("readwrite", (s) => s.delete(id)); };
   function shrink(file) {
     return new Promise((res) => {
       const url = URL.createObjectURL(file); const img = new Image();
@@ -950,6 +993,66 @@
   setInterval(() => { if (!["task", "event", "contact"].includes(current)) render(); }, 60e3);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && !["task", "event", "contact"].includes(current)) render(); });
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+<script src="sync.js"></script>
+<script>
+  // ================= Abgleich / Konto =================
+  function renderAccount() {
+    const S = window.Sync;
+    $("syncRow").hidden = !S.enabled;
+    if (!S.enabled) return;
+    const u = S.user;
+    $("accOut").hidden = !!u; $("accIn").hidden = !u;
+    const dot = $("syncDot");
+    dot.className = "dotst" + (!u ? "" : S.busy ? " busy" : S.lastError ? " err" : " ok");
+    const t = S.lastOk ? hm(S.lastOk) + " Uhr" : "";
+    $("syncT1").textContent = !u ? "Abgleich aus" : S.busy ? "Wird abgeglichen …" : S.lastError ? "Abgleich gestört" : "Abgleich aktiv";
+    $("syncT2").textContent = !u ? "Anmelden, damit iPhone und Mac dasselbe zeigen" : S.lastError ? "Keine Verbindung? Es wird automatisch erneut versucht." : (t ? "Zuletzt " + t + " · " : "") + u.email;
+    if (u) {
+      $("accWho").textContent = u.email;
+      $("accLast").textContent = S.busy ? "läuft gerade …" : t || "noch nicht";
+      $("accSyncErr").hidden = !S.lastError;
+      $("accSyncErr").textContent = S.lastError ? "Fehler: " + S.lastError : "";
+    }
+  }
+  function accError(e) {
+    const m = (e && e.message) || String(e);
+    const de = /invalid login/i.test(m) ? "E-Mail oder Passwort stimmt nicht."
+      : /not confirmed/i.test(m) ? "Bitte zuerst den Link in der Bestätigungs-E-Mail antippen."
+      : /already registered/i.test(m) ? "Für diese E-Mail gibt es schon ein Konto. Bitte „Anmelden“ nutzen."
+      : /password/i.test(m) && /least|short|6|8/.test(m) ? "Das Passwort ist zu kurz (mindestens 8 Zeichen)."
+      : /fetch|network/i.test(m) ? "Keine Internetverbindung."
+      : m;
+    $("accErr").textContent = de; $("accErr").hidden = false;
+  }
+  function accCreds() {
+    const email = $("accEmail").value.trim(), pw = $("accPw").value;
+    if (!email) { $("accEmail").focus(); return null; }
+    if (pw.length < 8) { accError({ message: "password at least 8" }); $("accPw").focus(); return null; }
+    return [email, pw];
+  }
+  $("accForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); $("accErr").hidden = true;
+    const c = accCreds(); if (!c) return;
+    try { await Sync.signIn(...c); $("accPw").value = ""; toast("Angemeldet"); render(); } catch (err) { accError(err); }
+  });
+  $("accSignup").onclick = async () => {
+    $("accErr").hidden = true;
+    const c = accCreds(); if (!c) return;
+    try {
+      const r = await Sync.signUp(...c);
+      if (r === "ok") { $("accPw").value = ""; toast("Konto angelegt"); render(); }
+      else { $("accErr").hidden = false; $("accErr").textContent = "Fast geschafft: Bitte den Link in der E-Mail antippen und danach hier „Anmelden“."; }
+    } catch (err) { accError(err); }
+  };
+  $("accSync").onclick = () => Sync.syncNow();
+  $("accOutBtn").onclick = async () => {
+    if (confirm("Abmelden? Ihre Einträge bleiben auf diesem Gerät erhalten.")) { await Sync.signOut(); toast("Abgemeldet"); }
+  };
+  Sync.setPhotoStore(getLocalPhoto, putPhoto);
+  Sync.onChange(renderAccount);
+  renderAccount();
+  Sync.init();
 </script>
 </body>
 </html>
